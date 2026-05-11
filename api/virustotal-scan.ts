@@ -27,8 +27,8 @@ function toBase64Url(input: string) {
   return Buffer.from(input, "utf8").toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-async function virusTotalFetch(path: string, init: RequestInit = {}) {
-  const apiKey = process.env.VIRUSTOTAL_API_KEY ?? process.env.VITE_VIRUSTOTAL_API_KEY;
+async function virusTotalFetch(path: string, apiKeyFromRequest?: string, init: RequestInit = {}) {
+  const apiKey = process.env.VIRUSTOTAL_API_KEY ?? process.env.VITE_VIRUSTOTAL_API_KEY ?? apiKeyFromRequest;
   if (!apiKey) throw new Error("Missing VIRUSTOTAL_API_KEY on Vercel");
 
   const res = await fetch(`${VIRUSTOTAL_API_BASE}${path}`, {
@@ -63,13 +63,13 @@ function parseVirusTotal(data: any, source: "url" | "analysis", submitted = fals
   };
 }
 
-async function scanUrl(url: string): Promise<VirusTotalScan> {
-  const lookupRes = await virusTotalFetch(`/urls/${toBase64Url(url)}`);
+async function scanUrl(url: string, apiKeyFromRequest?: string): Promise<VirusTotalScan> {
+  const lookupRes = await virusTotalFetch(`/urls/${toBase64Url(url)}`, apiKeyFromRequest);
 
   if (lookupRes.ok) return parseVirusTotal(await lookupRes.json(), "url");
   if (lookupRes.status !== 404) throw new Error(`VirusTotal lookup failed with status ${lookupRes.status}`);
 
-  const submitRes = await virusTotalFetch("/urls", {
+  const submitRes = await virusTotalFetch("/urls", apiKeyFromRequest, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: `url=${encodeURIComponent(url)}`,
@@ -84,7 +84,7 @@ async function scanUrl(url: string): Promise<VirusTotalScan> {
 
   for (let attempt = 0; attempt < 4; attempt++) {
     await new Promise((resolve) => setTimeout(resolve, attempt === 0 ? 1200 : 1800));
-    const analysisRes = await virusTotalFetch(`/analyses/${analysisId}`);
+    const analysisRes = await virusTotalFetch(`/analyses/${analysisId}`, apiKeyFromRequest);
     if (!analysisRes.ok) continue;
 
     const analysisData = await analysisRes.json();
@@ -104,7 +104,8 @@ export default async function handler(req: any, res: any) {
 
   try {
     const url = validateUrl(req.body?.url);
-    const virusTotal = await scanUrl(url);
+    const requestApiKey = typeof req.body?.apiKey === "string" ? req.body.apiKey : undefined;
+    const virusTotal = await scanUrl(url, requestApiKey);
     return res.status(200).json({ virus_total: virusTotal });
   } catch (error) {
     const message = error instanceof Error ? error.message : "VirusTotal scan failed";

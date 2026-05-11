@@ -86,7 +86,7 @@ async function fetchVirusTotalScan(url: string, signal?: AbortSignal): Promise<V
     const res = await fetch("/api/virustotal-scan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url }),
+      body: JSON.stringify({ url, apiKey: VIRUSTOTAL_API_KEY }),
       signal,
     });
 
