@@ -28,7 +28,7 @@ function toBase64Url(input: string) {
 }
 
 async function virusTotalFetch(path: string, init: RequestInit = {}) {
-  const apiKey = process.env.VIRUSTOTAL_API_KEY;
+  const apiKey = process.env.VIRUSTOTAL_API_KEY ?? process.env.VITE_VIRUSTOTAL_API_KEY;
   if (!apiKey) throw new Error("Missing VIRUSTOTAL_API_KEY on Vercel");
 
   const res = await fetch(`${VIRUSTOTAL_API_BASE}${path}`, {
