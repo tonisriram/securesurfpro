@@ -37,7 +37,7 @@ function useDebounce<T>(value: T, delay: number) {
 type VirusTotalScan = NonNullable<ScanResult["virus_total"]>;
 
 const VIRUSTOTAL_API_KEY = import.meta.env.VITE_VIRUSTOTAL_API_KEY;
-const VIRUSTOTAL_API_BASE = import.meta.env.DEV ? "/vtapi" : "https://www.virustotal.com/api/v3";
+const VIRUSTOTAL_API_BASE = "/vtapi";
 
 function toBase64Url(input: string) {
   const bytes = new TextEncoder().encode(input);
@@ -82,6 +82,19 @@ function parseVirusTotal(data: any, source: "url" | "analysis", submitted = fals
 }
 
 async function fetchVirusTotalScan(url: string, signal?: AbortSignal): Promise<VirusTotalScan> {
+  if (import.meta.env.PROD) {
+    const res = await fetch("/api/virustotal-scan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url }),
+      signal,
+    });
+
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error ?? `VirusTotal scan failed with status ${res.status}`);
+    return data.virus_total;
+  }
+
   const lookupRes = await virusTotalFetch(`/urls/${toBase64Url(url)}`, { signal });
 
   if (lookupRes.ok) return parseVirusTotal(await lookupRes.json(), "url");
